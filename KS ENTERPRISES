@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Attendance App</title>
+
+<style>
+body { font-family: Arial; margin: 0; background: #f2f2f2; }
+
+.header {
+    background: #007bff;
+    color: white;
+    padding: 15px;
+    text-align: center;
+    font-size: 20px;
+}
+
+.container { padding: 15px; text-align: center; }
+
+input {
+    width: 90%;
+    padding: 12px;
+    margin: 8px;
+    border-radius: 10px;
+    border: 1px solid #ccc;
+}
+
+button {
+    padding: 12px;
+    margin: 8px;
+    border: none;
+    border-radius: 10px;
+    color: white;
+    font-size: 16px;
+}
+
+.present { background: green; }
+.absent { background: red; }
+.admin { background: #333; }
+
+.card {
+    background: white;
+    padding: 10px;
+    margin: 10px;
+    border-radius: 10px;
+    box-shadow: 0px 0px 5px gray;
+}
+</style>
+</head>
+
+<body>
+
+<div class="header">Attendance App</div>
+
+<div class="container" id="loginBox">
+    <h3>Select Mode</h3>
+    <button onclick="showEmployee()">Employee</button>
+    <button class="admin" onclick="showAdminLogin()">Admin</button>
+</div>
+
+<!-- Employee -->
+<div class="container" id="employeeBox" style="display:none;">
+    <input type="text" id="name" placeholder="Enter Name">
+
+    <br>
+
+    <button class="present" onclick="mark('Present')">✔ Present</button>
+    <button class="absent" onclick="mark('Absent')">✖ Absent</button>
+
+    <h3>Your Records</h3>
+    <div id="records"></div>
+
+    <button onclick="back()">⬅ Back</button>
+</div>
+
+<!-- Admin Login -->
+<div class="container" id="adminLogin" style="display:none;">
+    <h3>Admin Login</h3>
+    <input type="password" id="adminPass" placeholder="Enter Password">
+    <button class="admin" onclick="loginAdmin()">Login</button>
+    <button onclick="back()">⬅ Back</button>
+</div>
+
+<!-- Admin Dashboard -->
+<div class="container" id="adminBox" style="display:none;">
+    <h3>Admin Dashboard</h3>
+
+    <div id="summary"></div>
+
+    <button onclick="downloadExcel()" style="background:green;">
+        📥 Download Excel
+    </button>
+
+    <button onclick="clearData()" style="background:red;">
+        ❌ Delete All Data
+    </button>
+
+    <div id="allRecords"></div>
+
+    <button onclick="back()">⬅ Logout</button>
+</div>
+
+<script>
+let data = JSON.parse(localStorage.getItem("attendance")) || [];
+
+function showEmployee(){
+    hideAll();
+    document.getElementById("employeeBox").style.display="block";
+    show();
+}
+
+function showAdminLogin(){
+    hideAll();
+    document.getElementById("adminLogin").style.display="block";
+}
+
+function loginAdmin(){
+    let pass = document.getElementById("adminPass").value;
+
+    if(pass === "1234"){
+        hideAll();
+        document.getElementById("adminBox").style.display="block";
+        showAdmin();
+    } else {
+        alert("Wrong Password!");
+    }
+}
+
+function mark(status){
+    let name = document.getElementById("name").value;
+
+    if(name==""){
+        alert("Name likho!");
+        return;
+    }
+
+    let date = new Date().toLocaleDateString();
+    let time = new Date().toLocaleTimeString();
+
+    let entry = {name, date, time, status};
+
+    data.push(entry);
+    localStorage.setItem("attendance", JSON.stringify(data));
+
+    show();
+    document.getElementById("name").value="";
+}
+
+function show(){
+    let html="";
+    data.forEach(e=>{
+        html += `
+        <div class="card">
+            <b>${e.name}</b><br>
+            ${e.date} | ${e.time}<br>
+            ${e.status}
+        </div>`;
+    });
+    document.getElementById("records").innerHTML = html;
+}
+
+function showAdmin(){
+    let html="";
+    let present=0, absent=0;
+
+    data.forEach(e=>{
+        if(e.status=="Present") present++;
+        else absent++;
+
+        html += `
+        <div class="card">
+            <b>${e.name}</b><br>
+            ${e.date} | ${e.time}<br>
+            ${e.status}
+        </div>`;
+    });
+
+    document.getElementById("allRecords").innerHTML = html;
+
+    document.getElementById("summary").innerHTML =
+        `<b>Total:</b> ${data.length} <br>
+         ✔ Present: ${present} <br>
+         ✖ Absent: ${absent}`;
+}
+
+// Excel Download
+function downloadExcel(){
+    let csv = "Name,Date,Time,Status\n";
+
+    data.forEach(e => {
+        csv += `${e.name},${e.date},${e.time},${e.status}\n`;
+    });
+
+    let blob = new Blob([csv], { type: "text/csv" });
+    let url = window.URL.createObjectURL(blob);
+
+    let a = document.createElement("a");
+    a.href = url;
+    a.download = "attendance_report.csv";
+    a.click();
+
+    window.URL.revokeObjectURL(url);
+}
+
+function clearData(){
+    if(confirm("Delete all data?")){
+        localStorage.clear();
+        data=[];
+        showAdmin();
+    }
+}
+
+function hideAll(){
+    document.getElementById("loginBox").style.display="none";
+    document.getElementById("employeeBox").style.display="none";
+    document.getElementById("adminLogin").style.display="none";
+    document.getElementById("adminBox").style.display="none";
+}
+
+function back(){
+    location.reload();
+}
+</script>
+
+</body>
+</html>
