@@ -1,175 +1,110 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>KS ENTERPRISES Attendance</title>
-<style>
-*{margin:0;padding:0;box-sizing:border-box;font-family:Arial,sans-serif}
-body{
-background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);
-padding:15px;color:#fff;
-}
-.app{
-max-width:420px;
-margin:auto;
-background:rgba(255,255,255,0.08);
-padding:20px;
-border-radius:20px;
-backdrop-filter:blur(10px);
-}
-h1{text-align:center;margin-bottom:15px}
-.card{
-background:rgba(255,255,255,0.1);
-padding:15px;
-border-radius:15px;
-margin-bottom:15px;
-}
-input,select{
-width:100%;
-padding:12px;
-margin-bottom:10px;
-border:none;
-border-radius:10px;
-font-size:16px;
-}
-button{
-width:100%;
-padding:12px;
-border:none;
-border-radius:10px;
-background:#00c6ff;
-color:#fff;
-font-size:16px;
-margin-bottom:8px;
-cursor:pointer;
-}
-button:hover{background:#0072ff}
-.list{
-max-height:250px;
-overflow:auto;
-}
-.item{
-background:rgba(255,255,255,0.08);
-padding:10px;
-border-radius:10px;
-margin-bottom:8px;
-font-size:14px;
-}
-small{opacity:0.8}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KS Enterprises - Live Attendance</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background-color: #2c3e50; color: white; text-align: center; }
+        .container { max-width: 400px; margin: 20px auto; background: #34495e; padding: 20px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        input, select, button { width: 90%; padding: 12px; margin: 10px 0; border-radius: 8px; border: none; font-size: 16px; }
+        button { background-color: #1abc9c; color: white; cursor: pointer; font-weight: bold; }
+        button:hover { background-color: #16a085; }
+        .status-box { background: rgba(255,255,255,0.1); padding: 10px; margin-top: 20px; text-align: left; height: 250px; overflow-y: auto; }
+        .entry { border-bottom: 1px solid #555; padding: 8px; font-size: 14px; }
+        .present { color: #2ecc71; } .absent { color: #e74c3c; }
+    </style>
 </head>
 <body>
 
-<div class="app">
-<h1>KS ENTERPRISES</h1>
+    <h2>KS ENTERPRISES</h2>
 
-<div class="card">
-<h3>Add Employee</h3>
-<input type="text" id="empName" placeholder="Enter employee name">
-<button onclick="addEmployee()">Add Employee</button>
-</div>
+    <div class="container">
+        <h3>Add New Employee</h3>
+        <input type="text" id="empName" placeholder="Enter Employee Name">
+        <button onclick="addEmployee()">Add Employee</button>
+    </div>
 
-<div class="card">
-<h3>Employee Attendance</h3>
-<select id="employeeList"></select>
-<button onclick="mark('Present')">Mark Present</button>
-<button onclick="mark('Absent')">Mark Absent</button>
-</div>
+    <div class="container">
+        <h3>Mark Attendance</h3>
+        <select id="empList"><option>Loading Employees...</option></select>
+        <button onclick="markStatus('Present')">Mark Present</button>
+        <button style="background-color: #e67e22;" onclick="markStatus('Absent')">Mark Absent</button>
+    </div>
 
-<div class="card">
-<h3>Today's Status</h3>
-<div class="list" id="records"></div>
-<button onclick="downloadCSV()">Download Excel</button>
-</div>
+    <div class="container">
+        <h3>Today's Live Status</h3>
+        <div id="liveStatus" class="status-box">No records yet.</div>
+    </div>
 
-</div>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 
-<script>
-let employees = JSON.parse(localStorage.getItem("employees")) || [];
-let attendance = JSON.parse(localStorage.getItem("attendance")) || [];
+    <script>
+        // REPLACE THIS WITH YOUR FIREBASE CONFIG
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT.firebaseapp.com",
+            databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_PROJECT.appspot.com",
+            messagingSenderId: "YOUR_ID",
+            appId: "YOUR_APP_ID"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
 
-function save(){
-localStorage.setItem("employees",JSON.stringify(employees));
-localStorage.setItem("attendance",JSON.stringify(attendance));
-}
+        // 1. Add Employee to DB
+        function addEmployee() {
+            const name = document.getElementById('empName').value;
+            if(name) {
+                db.ref('employees/').push(name);
+                document.getElementById('empName').value = '';
+                alert("Employee Added!");
+            }
+        }
 
-function addEmployee(){
-let name=document.getElementById("empName").value.trim();
-if(name==""){alert("Enter Name");return;}
-if(employees.includes(name)){alert("Already Added");return;}
-employees.push(name);
-save();
-document.getElementById("empName").value="";
-loadEmployees();
-}
+        // 2. Fetch Employee List for Dropdown
+        db.ref('employees/').on('value', (snap) => {
+            const list = document.getElementById('empList');
+            list.innerHTML = "";
+            snap.forEach((child) => {
+                list.innerHTML += `<option value="${child.val()}">${child.val()}</option>`;
+            });
+        });
 
-function loadEmployees(){
-let list=document.getElementById("employeeList");
-list.innerHTML="";
-employees.forEach(name=>{
-list.innerHTML += `<option>${name}</option>`;
-});
-}
+        // 3. Mark Attendance (Cloud Pe Save Hoga)
+        function markStatus(status) {
+            const name = document.getElementById('empList').value;
+            const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+            const time = new Date().toLocaleTimeString();
 
-function mark(status){
-let name=document.getElementById("employeeList").value;
-if(!name){alert("No Employee");return;}
+            db.ref('attendance/' + today + '/' + name).set({
+                status: status,
+                time: time
+            });
+            alert(name + " marked " + status);
+        }
 
-let today=new Date().toLocaleDateString();
-let time=new Date().toLocaleTimeString();
-
-let already=attendance.find(x=>x.name==name && x.date==today);
-if(already){
-alert("Attendance Already Marked Today");
-return;
-}
-
-attendance.push({name,status,date:today,time});
-save();
-showRecords();
-}
-
-function showRecords(){
-let box=document.getElementById("records");
-box.innerHTML="";
-let today=new Date().toLocaleDateString();
-
-employees.forEach(emp=>{
-let rec=attendance.find(x=>x.name==emp && x.date==today);
-
-if(rec){
-box.innerHTML += `
-<div class="item">
-<b>${rec.name}</b><br>
-${rec.status} <br>
-<small>${rec.time}</small>
-</div>`;
-}else{
-box.innerHTML += `
-<div class="item">
-<b>${emp}</b><br>
-Pending
-</div>`;
-}
-});
-}
-
-function downloadCSV(){
-let csv="Name,Status,Date,Time\n";
-attendance.forEach(x=>{
-csv += `${x.name},${x.status},${x.date},${x.time}\n`;
-});
-let blob=new Blob([csv],{type:"text/csv"});
-let a=document.createElement("a");
-a.href=URL.createObjectURL(blob);
-a.download="attendance.csv";
-a.click();
-}
-
-loadEmployees();
-showRecords();
-</script>
-
+        // 4. Live Update (Admin Screen)
+        const todayStr = new Date().toISOString().split('T')[0];
+        db.ref('attendance/' + todayStr).on('value', (snap) => {
+            const statusDiv = document.getElementById('liveStatus');
+            statusDiv.innerHTML = "";
+            if(!snap.exists()) { statusDiv.innerHTML = "No attendance marked today."; return; }
+            
+            snap.forEach((child) => {
+                const data = child.val();
+                const colorClass = data.status === 'Present' ? 'present' : 'absent';
+                statusDiv.innerHTML += `
+                    <div class="entry">
+                        <strong>${child.key}</strong> - 
+                        <span class="${colorClass}">${data.status}</span> 
+                        <br><small>${data.time}</small>
+                    </div>`;
+            });
+        });
+    </script>
 </body>
 </html>
