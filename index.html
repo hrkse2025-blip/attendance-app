@@ -3,174 +3,162 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Premium Attendance App</title>
+<title>KS ENTERPRISES Attendance</title>
 <style>
-*{
-margin:0;
-padding:0;
-box-sizing:border-box;
-font-family:Arial, sans-serif;
-}
+*{margin:0;padding:0;box-sizing:border-box;font-family:Arial,sans-serif}
 body{
 background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);
-min-height:100vh;
-display:flex;
-justify-content:center;
-align-items:center;
-padding:15px;
+padding:15px;color:#fff;
 }
 .app{
-width:100%;
 max-width:420px;
+margin:auto;
 background:rgba(255,255,255,0.08);
-backdrop-filter:blur(15px);
-border-radius:25px;
 padding:20px;
-color:#fff;
-box-shadow:0 10px 30px rgba(0,0,0,0.3);
-}
-.top{
-text-align:center;
-margin-bottom:20px;
-}
-.top h1{
-font-size:28px;
-margin-bottom:5px;
-}
-.top p{
-font-size:14px;
-opacity:0.8;
-}
-.card{
-background:rgba(255,255,255,0.12);
-padding:15px;
 border-radius:20px;
+backdrop-filter:blur(10px);
+}
+h1{text-align:center;margin-bottom:15px}
+.card{
+background:rgba(255,255,255,0.1);
+padding:15px;
+border-radius:15px;
 margin-bottom:15px;
 }
-input{
+input,select{
 width:100%;
-padding:14px;
+padding:12px;
+margin-bottom:10px;
 border:none;
-outline:none;
-border-radius:12px;
+border-radius:10px;
 font-size:16px;
-margin-bottom:12px;
 }
 button{
 width:100%;
-padding:14px;
+padding:12px;
 border:none;
-border-radius:12px;
+border-radius:10px;
 background:#00c6ff;
 color:#fff;
 font-size:16px;
-font-weight:bold;
+margin-bottom:8px;
 cursor:pointer;
-margin-bottom:10px;
 }
-button:hover{
-background:#0072ff;
-}
+button:hover{background:#0072ff}
 .list{
 max-height:250px;
 overflow:auto;
 }
 .item{
-background:rgba(255,255,255,0.1);
-padding:12px;
-border-radius:14px;
-margin-bottom:10px;
+background:rgba(255,255,255,0.08);
+padding:10px;
+border-radius:10px;
+margin-bottom:8px;
 font-size:14px;
 }
-.bottom{
-display:flex;
-justify-content:space-around;
-margin-top:15px;
-padding-top:10px;
-border-top:1px solid rgba(255,255,255,0.2);
-font-size:14px;
-}
-.stat{
-text-align:center;
-}
+small{opacity:0.8}
 </style>
 </head>
 <body>
 
 <div class="app">
-<div class="top">
-<h1>📘 Attendance App</h1>
-<p>Blue Premium Edition</p>
+<h1>KS ENTERPRISES</h1>
+
+<div class="card">
+<h3>Add Employee</h3>
+<input type="text" id="empName" placeholder="Enter employee name">
+<button onclick="addEmployee()">Add Employee</button>
 </div>
 
 <div class="card">
-<input type="text" id="name" placeholder="Enter Student Name">
-<button onclick="markAttendance()">Mark Attendance</button>
+<h3>Employee Attendance</h3>
+<select id="employeeList"></select>
+<button onclick="mark('Present')">Mark Present</button>
+<button onclick="mark('Absent')">Mark Absent</button>
+</div>
+
+<div class="card">
+<h3>Today's Status</h3>
+<div class="list" id="records"></div>
 <button onclick="downloadCSV()">Download Excel</button>
 </div>
 
-<div class="list" id="list"></div>
-
-<div class="bottom">
-<div class="stat">
-<h3 id="count">0</h3>
-<p>Total</p>
-</div>
-<div class="stat">
-<h3>100%</h3>
-<p>Ready</p>
-</div>
-<div class="stat">
-<h3>✔</h3>
-<p>Saved</p>
-</div>
-</div>
 </div>
 
 <script>
+let employees = JSON.parse(localStorage.getItem("employees")) || [];
 let attendance = JSON.parse(localStorage.getItem("attendance")) || [];
 
-function showData(){
-let list = document.getElementById("list");
-list.innerHTML="";
-attendance.forEach(item=>{
-list.innerHTML += `
-<div class="item">
-<b>${item.name}</b><br>
-${item.date} | ${item.time}
-</div>
-`;
-});
-document.getElementById("count").innerText = attendance.length;
-}
-
-function markAttendance(){
-let name = document.getElementById("name").value.trim();
-if(name==""){
-alert("Enter Name");
-return;
-}
-let now = new Date();
-let date = now.toLocaleDateString();
-let time = now.toLocaleTimeString();
-
-let already = attendance.find(x => x.name.toLowerCase()==name.toLowerCase() && x.date==date);
-
-if(already){
-alert("Already Marked Today");
-return;
-}
-
-attendance.push({name,date,time});
+function save(){
+localStorage.setItem("employees",JSON.stringify(employees));
 localStorage.setItem("attendance",JSON.stringify(attendance));
-document.getElementById("name").value="";
-showData();
+}
+
+function addEmployee(){
+let name=document.getElementById("empName").value.trim();
+if(name==""){alert("Enter Name");return;}
+if(employees.includes(name)){alert("Already Added");return;}
+employees.push(name);
+save();
+document.getElementById("empName").value="";
+loadEmployees();
+}
+
+function loadEmployees(){
+let list=document.getElementById("employeeList");
+list.innerHTML="";
+employees.forEach(name=>{
+list.innerHTML += `<option>${name}</option>`;
+});
+}
+
+function mark(status){
+let name=document.getElementById("employeeList").value;
+if(!name){alert("No Employee");return;}
+
+let today=new Date().toLocaleDateString();
+let time=new Date().toLocaleTimeString();
+
+let already=attendance.find(x=>x.name==name && x.date==today);
+if(already){
+alert("Attendance Already Marked Today");
+return;
+}
+
+attendance.push({name,status,date:today,time});
+save();
+showRecords();
+}
+
+function showRecords(){
+let box=document.getElementById("records");
+box.innerHTML="";
+let today=new Date().toLocaleDateString();
+
+employees.forEach(emp=>{
+let rec=attendance.find(x=>x.name==emp && x.date==today);
+
+if(rec){
+box.innerHTML += `
+<div class="item">
+<b>${rec.name}</b><br>
+${rec.status} <br>
+<small>${rec.time}</small>
+</div>`;
+}else{
+box.innerHTML += `
+<div class="item">
+<b>${emp}</b><br>
+Pending
+</div>`;
+}
+});
 }
 
 function downloadCSV(){
-let csv="Name,Date,Time\n";
+let csv="Name,Status,Date,Time\n";
 attendance.forEach(x=>{
-csv += `${x.name},${x.date},${x.time}\n`;
+csv += `${x.name},${x.status},${x.date},${x.time}\n`;
 });
 let blob=new Blob([csv],{type:"text/csv"});
 let a=document.createElement("a");
@@ -179,7 +167,8 @@ a.download="attendance.csv";
 a.click();
 }
 
-showData();
+loadEmployees();
+showRecords();
 </script>
 
 </body>
