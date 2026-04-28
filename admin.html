@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Live Dashboard</title>
+    <style>
+        body { font-family: sans-serif; background: #1a1a1a; color: white; padding: 20px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; max-width: 1000px; margin: auto; }
+        .card { background: #2d2d2d; padding: 20px; border-radius: 12px; }
+        input, button { width: 100%; padding: 10px; margin: 10px 0; border-radius: 5px; border: none; }
+        #live-status { background: white; color: black; padding: 15px; border-radius: 8px; min-height: 200px; }
+        .status-item { display: flex; justify-content: space-between; border-bottom: 1px solid #eee; padding: 10px 0; }
+        .Present { color: green; font-weight: bold; }
+        .Absent { color: red; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1 style="text-align:center">ADMIN CONTROL PANEL</h1>
+    <div class="grid">
+        <div class="card">
+            <h3>Add New Staff</h3>
+            <input type="text" id="newEmpName" placeholder="Employee Name">
+            <button style="background:#3498db; color:white" onclick="registerEmployee()">ADD TO SYSTEM</button>
+        </div>
+        <div class="card">
+            <h3>Live Status (Today)</h3>
+            <div id="live-status">Loading...</div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, where, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        const firebaseConfig = { /* APNI CONFIG YAHAN DALEIN */ };
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const todayStr = new Date().toLocaleDateString('en-GB');
+
+        window.registerEmployee = async () => {
+            const val = document.getElementById('newEmpName').value;
+            if(!val) return;
+            await addDoc(collection(db, "employees"), { name: val });
+            alert("Added!");
+            document.getElementById('newEmpName').value = "";
+        };
+
+        const q = query(collection(db, "attendance"), where("date", "==", todayStr));
+        onSnapshot(q, (snap) => {
+            const div = document.getElementById('live-status');
+            div.innerHTML = "";
+            snap.forEach(doc => {
+                const data = doc.data();
+                div.innerHTML += `<div class="status-item"><span>${data.employeeName}</span><span class="${data.status}">${data.status}</span></div>`;
+            });
+        });
+    </script>
+</body>
+</html>
