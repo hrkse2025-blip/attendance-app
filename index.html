@@ -3,47 +3,63 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KS Enterprises - Attendance</title>
+    <title>KS Enterprises - Attendance System</title>
     <style>
-        body { font-family: sans-serif; background-color: #2c3e50; color: white; text-align: center; }
-        .container { max-width: 400px; margin: 50px auto; background: #34495e; padding: 20px; border-radius: 10px; }
-        input, select, button { width: 100%; padding: 10px; margin: 10px 0; border-radius: 5px; border: none; }
-        button { cursor: pointer; font-weight: bold; }
-        .btn-add { background: #27ae60; color: white; }
+        :root { --dark: #2c3e50; --green: #27ae60; --orange: #e67e22; --light: #ecf0f1; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--dark); color: white; margin: 0; padding: 20px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; max-width: 1000px; margin: auto; }
+        .card { background: #34495e; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+        h2 { text-align: center; color: #f1c40f; border-bottom: 2px solid #555; padding-bottom: 10px; }
+        input, select, button { width: 100%; padding: 12px; margin: 10px 0; border-radius: 8px; border: none; font-size: 16px; box-sizing: border-box; }
+        button { cursor: pointer; font-weight: bold; transition: 0.3s; }
+        .btn-add { background: var(--green); color: white; }
         .btn-present { background: #2ecc71; color: white; }
-        .btn-absent { background: #e67e22; color: white; }
-        #status-list { background: #ecf0f1; color: #333; padding: 10px; border-radius: 5px; min-height: 50px; }
+        .btn-absent { background: var(--orange); color: white; }
+        button:hover { opacity: 0.8; transform: translateY(-2px); }
+        #live-status { background: var(--light); color: #333; padding: 15px; border-radius: 8px; max-height: 400px; overflow-y: auto; }
+        .status-item { display: flex; justify-content: space-between; border-bottom: 1px solid #ddd; padding: 8px 0; }
+        .Present { color: green; font-weight: bold; }
+        .Absent { color: red; font-weight: bold; }
+        @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <h2>KS ENTERPRISES</h2>
-    
-    <h3>Add New Employee</h3>
-    <input type="text" id="empName" placeholder="Enter Employee Name">
-    <button class="btn-add" onclick="addNewEmployee()">Add Employee</button>
+<h1 style="text-align: center;">KS ENTERPRISES - LIVE DASHBOARD</h1>
 
-    <hr>
+<div class="grid">
+    <div class="card">
+        <h2>Employee Side</h2>
+        
+        <label>Add New Employee (Admin Only)</label>
+        <input type="text" id="newEmpName" placeholder="Enter Full Name">
+        <button class="btn-add" onclick="registerEmployee()">Register Employee</button>
 
-    <h3>Mark Attendance</h3>
-    <select id="empSelect">
-        <option value="">Loading Employees...</option>
-    </select>
-    <button class="btn-present" onclick="markAttendance('Present')">Mark Present</button>
-    <button class="btn-absent" onclick="markAttendance('Absent')">Mark Absent</button>
+        <hr style="margin: 20px 0; opacity: 0.3;">
 
-    <hr>
+        <label>Select Your Name</label>
+        <select id="empDropdown">
+            <option>Loading names...</option>
+        </select>
+        
+        <button class="btn-present" onclick="markAttendance('Present')">MARK PRESENT</button>
+        <button class="btn-absent" onclick="markAttendance('Absent')">MARK ABSENT</button>
+    </div>
 
-    <h3>Today's Live Status</h3>
-    <div id="status-list">No records yet.</div>
+    <div class="card">
+        <h2>Admin Live Status</h2>
+        <p id="todayDate" style="text-align: center; font-weight: bold;"></p>
+        <div id="live-status">
+            Loading live records...
+        </div>
+    </div>
 </div>
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getFirestore, collection, addDoc, onSnapshot, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+    import { getFirestore, collection, addDoc, onSnapshot, query, where, serverTimestamp, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-    // 1. APNI DETAILS YAHAN DALEIN
+    // --- APNI FIREBASE CONFIG YAHAN DALEIN ---
     const firebaseConfig = {
         apiKey: "YOUR_API_KEY",
         authDomain: "YOUR_PROJECT.firebaseapp.com",
@@ -56,59 +72,72 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    // 2. Employees Load Karna (Dropdown ke liye)
-    const empSelect = document.getElementById('empSelect');
+    const todayDateStr = new Date().toLocaleDateString('en-GB'); // Format: DD/MM/YYYY
+    document.getElementById('todayDate').innerText = "Date: " + todayDateStr;
+
+    // 1. Load Employees in Dropdown (Real-time)
     onSnapshot(collection(db, "employees"), (snapshot) => {
-        empSelect.innerHTML = '<option value="">Select Employee</option>';
-        snapshot.forEach((doc) => {
-            let emp = doc.data();
-            let option = document.createElement('option');
-            option.value = emp.name;
-            option.textContent = emp.name;
-            empSelect.appendChild(option);
+        const select = document.getElementById('empDropdown');
+        select.innerHTML = '<option value="">-- Choose Your Name --</option>';
+        snapshot.forEach(doc => {
+            let name = doc.data().name;
+            select.innerHTML += `<option value="${name}">${name}</option>`;
         });
     });
 
-    // 3. Naya Employee Add Karna
-    window.addNewEmployee = async () => {
-        const name = document.getElementById('empName').value;
-        if (!name) return alert("Naam likhiye!");
+    // 2. Register New Employee
+    window.registerEmployee = async () => {
+        const nameInput = document.getElementById('newEmpName');
+        if(!nameInput.value) return alert("Please enter a name");
         
         try {
-            await addDoc(collection(db, "employees"), { name: name });
-            alert("Employee Added!");
-            document.getElementById('empName').value = "";
-        } catch (e) { console.error("Error: ", e); }
+            await addDoc(collection(db, "employees"), { name: nameInput.value });
+            alert("Employee registered successfully!");
+            nameInput.value = "";
+        } catch(e) { alert("Error: " + e.message); }
     };
 
-    // 4. Attendance Mark Karna
+    // 3. Mark Attendance
     window.markAttendance = async (status) => {
-        const name = empSelect.value;
-        if (!name) return alert("Employee select karein!");
-        
-        const today = new Date().toLocaleDateString();
-        await addDoc(collection(db, "attendance"), {
-            name: name,
-            status: status,
-            date: today
-        });
-        alert(name + " marked as " + status);
+        const name = document.getElementById('empDropdown').value;
+        if(!name) return alert("Please select a name first!");
+
+        try {
+            await addDoc(collection(db, "attendance"), {
+                employeeName: name,
+                status: status,
+                date: todayDateStr,
+                timestamp: serverTimestamp()
+            });
+            alert("Attendance marked: " + status);
+        } catch(e) { alert("Error: " + e.message); }
     };
 
-    // 5. Today's Status Dikhana
-    const statusDiv = document.getElementById('status-list');
-    const todayStr = new Date().toLocaleDateString();
-    const q = query(collection(db, "attendance"), where("date", "==", todayStr));
+    // 4. ADMIN VIEW: Live Status Update (Today Only)
+    const q = query(
+        collection(db, "attendance"), 
+        where("date", "==", todayDateStr)
+    );
 
     onSnapshot(q, (snapshot) => {
-        if (snapshot.empty) {
-            statusDiv.innerHTML = "No records yet.";
+        const statusDiv = document.getElementById('live-status');
+        if(snapshot.empty) {
+            statusDiv.innerHTML = "No attendance marked yet today.";
             return;
         }
+
         statusDiv.innerHTML = "";
-        snapshot.forEach((doc) => {
-            let data = doc.data();
-            statusDiv.innerHTML += `<p><b>${data.name}</b>: ${data.status}</p>`;
+        // Sort manually since we can't use complex indexes easily on first run
+        let records = [];
+        snapshot.forEach(doc => records.push(doc.data()));
+        
+        records.forEach(data => {
+            statusDiv.innerHTML += `
+                <div class="status-item">
+                    <span>${data.employeeName}</span>
+                    <span class="${data.status}">${data.status}</span>
+                </div>
+            `;
         });
     });
 </script>
