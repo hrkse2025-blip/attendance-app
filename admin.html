@@ -1,60 +1,133 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin - Live Dashboard</title>
+    <title>KS Admin - Monthly Reports</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
-        body { font-family: sans-serif; background: #1a1a1a; color: white; padding: 20px; }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; max-width: 1000px; margin: auto; }
-        .card { background: #2d2d2d; padding: 20px; border-radius: 12px; }
-        input, button { width: 100%; padding: 10px; margin: 10px 0; border-radius: 5px; border: none; }
-        #live-status { background: white; color: black; padding: 15px; border-radius: 8px; min-height: 200px; }
-        .status-item { display: flex; justify-content: space-between; border-bottom: 1px solid #eee; padding: 10px 0; }
-        .Present { color: green; font-weight: bold; }
-        .Absent { color: red; font-weight: bold; }
+        body { font-family: sans-serif; background: #f4f7f6; padding: 20px; }
+        .card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .flex { display: flex; gap: 10px; margin-top: 10px; }
+        select, input, button { padding: 10px; border-radius: 5px; border: 1px solid #ddd; }
+        button { cursor: pointer; font-weight: bold; transition: 0.3s; }
+        .btn-download { background: #27ae60; color: white; border: none; width: 100%; margin-top: 15px; }
+        .btn-add { background: #3498db; color: white; border: none; }
+        .log-item { border-bottom: 1px solid #eee; padding: 10px 0; display: flex; justify-content: space-between; }
+        .Present { color: green; } .Absent { color: red; }
     </style>
 </head>
 <body>
-    <h1 style="text-align:center">ADMIN CONTROL PANEL</h1>
-    <div class="grid">
-        <div class="card">
-            <h3>Add New Staff</h3>
-            <input type="text" id="newEmpName" placeholder="Employee Name">
-            <button style="background:#3498db; color:white" onclick="registerEmployee()">ADD TO SYSTEM</button>
-        </div>
-        <div class="card">
-            <h3>Live Status (Today)</h3>
-            <div id="live-status">Loading...</div>
+
+    <div class="card">
+        <h3>➕ Add New Staff</h3>
+        <div class="flex">
+            <input type="text" id="newStaff" style="flex:1" placeholder="Enter Name">
+            <button class="btn-add" onclick="addEmp()">ADD</button>
         </div>
     </div>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query, where, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+    <div class="card">
+        <h3>📊 Monthly Report & Excel</h3>
+        <p>Select Month to Download:</p>
+        <div class="flex">
+            <select id="monthSelect" style="flex:1">
+                <option value="/01/">January</option>
+                <option value="/02/">February</option>
+                <option value="/03/">March</option>
+                <option value="/04/" selected>April</option>
+                <option value="/05/">May</option>
+                <option value="/06/">June</option>
+                <option value="/07/">July</option>
+                <option value="/08/">August</option>
+                <option value="/09/">September</option>
+                <option value="/10/">October</option>
+                <option value="/11/">November</option>
+                <option value="/12/">December</option>
+            </select>
+            <input type="number" id="yearSelect" value="2026" style="width: 80px;">
+        </div>
+        <button class="btn-download" onclick="exportMonthlyExcel()">📥 DOWNLOAD MONTHLY EXCEL</button>
+    </div>
 
-        const firebaseConfig = { /* APNI CONFIG YAHAN DALEIN */ };
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const todayStr = new Date().toLocaleDateString('en-GB');
+    <div class="card">
+        <h3>🕒 Today's Live Status</h3>
+        <div id="liveLogs">Loading...</div>
+    </div>
 
-        window.registerEmployee = async () => {
-            const val = document.getElementById('newEmpName').value;
-            if(!val) return;
-            await addDoc(collection(db, "employees"), { name: val });
-            alert("Added!");
-            document.getElementById('newEmpName').value = "";
-        };
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getFirestore, collection, addDoc, onSnapshot, query, where, getDocs, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-        const q = query(collection(db, "attendance"), where("date", "==", todayStr));
-        onSnapshot(q, (snap) => {
-            const div = document.getElementById('live-status');
-            div.innerHTML = "";
-            snap.forEach(doc => {
-                const data = doc.data();
-                div.innerHTML += `<div class="status-item"><span>${data.employeeName}</span><span class="${data.status}">${data.status}</span></div>`;
-            });
+    // APNI FIREBASE CONFIG YAHAN DALEIN
+    const firebaseConfig = {
+        apiKey: "YOUR_API_KEY",
+        authDomain: "YOUR_PROJECT.firebaseapp.com",
+        projectId: "YOUR_PROJECT_ID",
+        storageBucket: "YOUR_PROJECT.appspot.com",
+        messagingSenderId: "YOUR_ID",
+        appId: "YOUR_APP_ID"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const today = new Date().toLocaleDateString('en-GB');
+
+    // 1. Live Today Status
+    const qToday = query(collection(db, "attendance"), where("date", "==", today));
+    onSnapshot(qToday, (snap) => {
+        const div = document.getElementById('liveLogs');
+        div.innerHTML = snap.empty ? "No one marked today." : "";
+        snap.forEach(doc => {
+            const d = doc.data();
+            div.innerHTML += `<div class="log-item"><span>${d.name || d.employeeName}</span><span class="${d.status}">${d.status}</span></div>`;
         });
-    </script>
+    });
+
+    // 2. Register Staff
+    window.addEmp = async () => {
+        const name = document.getElementById('newStaff').value;
+        if(!name) return;
+        await addDoc(collection(db, "employees"), { name });
+        alert("Employee Added!");
+        document.getElementById('newStaff').value = "";
+    };
+
+    // 3. EXCEL DOWNLOAD LOGIC (Monthly Filter)
+    window.exportMonthlyExcel = async () => {
+        const selectedMonth = document.getElementById('monthSelect').value; // Example: "/04/"
+        const selectedYear = document.getElementById('yearSelect').value;   // Example: "2026"
+        
+        try {
+            const snap = await getDocs(collection(db, "attendance"));
+            const data = [];
+
+            snap.forEach(doc => {
+                const row = doc.data();
+                // Check if date contains selected month and year
+                if(row.date.includes(selectedMonth) && row.date.includes(selectedYear)) {
+                    data.push({
+                        "Name": row.name || row.employeeName,
+                        "Status": row.status,
+                        "Date": row.date,
+                        "Entry Time": row.time ? new Date(row.time.seconds * 1000).toLocaleTimeString() : 'N/A'
+                    });
+                }
+            });
+
+            if(data.length === 0) {
+                alert("Is mahine ka koi data nahi mila!");
+                return;
+            }
+
+            // Create Excel
+            const ws = XLSX.utils.json_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Monthly Attendance");
+            XLSX.writeFile(wb, `Attendance_${selectedMonth.replace(/\//g,'')}_${selectedYear}.xlsx`);
+
+        } catch (e) { alert("Error: " + e.message); }
+    };
+</script>
 </body>
 </html>
