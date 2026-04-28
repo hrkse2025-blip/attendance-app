@@ -3,63 +3,63 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KS Enterprises - Attendance System</title>
+    <title>KS Enterprises - Smart Attendance</title>
     <style>
-        :root { --dark: #2c3e50; --green: #27ae60; --orange: #e67e22; --light: #ecf0f1; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--dark); color: white; margin: 0; padding: 20px; }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; max-width: 1000px; margin: auto; }
-        .card { background: #34495e; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
-        h2 { text-align: center; color: #f1c40f; border-bottom: 2px solid #555; padding-bottom: 10px; }
-        input, select, button { width: 100%; padding: 12px; margin: 10px 0; border-radius: 8px; border: none; font-size: 16px; box-sizing: border-box; }
-        button { cursor: pointer; font-weight: bold; transition: 0.3s; }
-        .btn-add { background: var(--green); color: white; }
-        .btn-present { background: #2ecc71; color: white; }
+        :root { --dark: #1a1a1a; --card: #2d2d2d; --green: #2ecc71; --orange: #e67e22; --text: #f5f5f5; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--dark); color: var(--text); padding: 20px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; max-width: 1100px; margin: auto; }
+        .card { background: var(--card); padding: 25px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        h2 { text-align: center; color: #f1c40f; margin-bottom: 20px; font-size: 1.5rem; }
+        input, select, button { width: 100%; padding: 12px; margin: 10px 0; border-radius: 8px; border: none; font-size: 15px; box-sizing: border-box; }
+        .btn-add { background: #3498db; color: white; }
+        .btn-present { background: var(--green); color: white; }
         .btn-absent { background: var(--orange); color: white; }
-        button:hover { opacity: 0.8; transform: translateY(-2px); }
-        #live-status { background: var(--light); color: #333; padding: 15px; border-radius: 8px; max-height: 400px; overflow-y: auto; }
-        .status-item { display: flex; justify-content: space-between; border-bottom: 1px solid #ddd; padding: 8px 0; }
-        .Present { color: green; font-weight: bold; }
-        .Absent { color: red; font-weight: bold; }
+        button:disabled { background: #555 !important; cursor: not-allowed; opacity: 0.6; }
+        #live-status { background: #fff; color: #333; padding: 15px; border-radius: 10px; min-height: 200px; }
+        .status-item { display: flex; justify-content: space-between; border-bottom: 1px solid #eee; padding: 10px 0; font-size: 14px; }
+        .Present { color: #27ae60; font-weight: bold; }
+        .Absent { color: #c0392b; font-weight: bold; }
+        .time-tag { font-size: 11px; color: #7f8c8d; display: block; }
         @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } }
     </style>
 </head>
 <body>
 
-<h1 style="text-align: center;">KS ENTERPRISES - LIVE DASHBOARD</h1>
+<h1 style="text-align: center; color: #f1c40f;">KS ENTERPRISES</h1>
 
 <div class="grid">
     <div class="card">
         <h2>Employee Side</h2>
-        
-        <label>Add New Employee (Admin Only)</label>
+        <p style="font-size: 12px; color: #aaa;">Admin: Add New Staff</p>
         <input type="text" id="newEmpName" placeholder="Enter Full Name">
-        <button class="btn-add" onclick="registerEmployee()">Register Employee</button>
+        <button class="btn-add" onclick="registerEmployee()">Add Employee</button>
 
-        <hr style="margin: 20px 0; opacity: 0.3;">
+        <hr style="border: 0.5px solid #444; margin: 25px 0;">
 
-        <label>Select Your Name</label>
+        <label>Select Your Name:</label>
         <select id="empDropdown">
-            <option>Loading names...</option>
+            <option>Loading...</option>
         </select>
         
-        <button class="btn-present" onclick="markAttendance('Present')">MARK PRESENT</button>
-        <button class="btn-absent" onclick="markAttendance('Absent')">MARK ABSENT</button>
+        <div id="action-buttons">
+            <button class="btn-present" id="pBtn" onclick="markAttendance('Present')">MARK PRESENT</button>
+            <button class="btn-absent" id="aBtn" onclick="markAttendance('Absent')">MARK ABSENT</button>
+        </div>
+        <p id="msg" style="text-align: center; color: #f1c40f; font-weight: bold;"></p>
     </div>
 
     <div class="card">
         <h2>Admin Live Status</h2>
-        <p id="todayDate" style="text-align: center; font-weight: bold;"></p>
-        <div id="live-status">
-            Loading live records...
-        </div>
+        <p id="todayDate" style="text-align: center; font-weight: bold; margin-bottom: 15px;"></p>
+        <div id="live-status">Loading live records...</div>
     </div>
 </div>
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getFirestore, collection, addDoc, onSnapshot, query, where, serverTimestamp, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+    import { getFirestore, collection, addDoc, onSnapshot, query, where, serverTimestamp, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-    // --- APNI FIREBASE CONFIG YAHAN DALEIN ---
+    // --- FIREBASE CONFIG ---
     const firebaseConfig = {
         apiKey: "YOUR_API_KEY",
         authDomain: "YOUR_PROJECT.firebaseapp.com",
@@ -71,74 +71,77 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
+    const todayStr = new Date().toLocaleDateString('en-GB');
+    document.getElementById('todayDate').innerText = "Today: " + todayStr;
 
-    const todayDateStr = new Date().toLocaleDateString('en-GB'); // Format: DD/MM/YYYY
-    document.getElementById('todayDate').innerText = "Date: " + todayDateStr;
+    // 1. Register Employee
+    window.registerEmployee = async () => {
+        const val = document.getElementById('newEmpName').value.trim();
+        if(!val) return alert("Enter name!");
+        await addDoc(collection(db, "employees"), { name: val });
+        document.getElementById('newEmpName').value = "";
+        alert("Employee Added!");
+    };
 
-    // 1. Load Employees in Dropdown (Real-time)
-    onSnapshot(collection(db, "employees"), (snapshot) => {
-        const select = document.getElementById('empDropdown');
-        select.innerHTML = '<option value="">-- Choose Your Name --</option>';
-        snapshot.forEach(doc => {
-            let name = doc.data().name;
-            select.innerHTML += `<option value="${name}">${name}</option>`;
+    // 2. Load Dropdown
+    onSnapshot(collection(db, "employees"), (snap) => {
+        const sel = document.getElementById('empDropdown');
+        sel.innerHTML = '<option value="">-- Choose Name --</option>';
+        snap.forEach(doc => {
+            sel.innerHTML += `<option value="${doc.data().name}">${doc.data().name}</option>`;
         });
     });
 
-    // 2. Register New Employee
-    window.registerEmployee = async () => {
-        const nameInput = document.getElementById('newEmpName');
-        if(!nameInput.value) return alert("Please enter a name");
-        
-        try {
-            await addDoc(collection(db, "employees"), { name: nameInput.value });
-            alert("Employee registered successfully!");
-            nameInput.value = "";
-        } catch(e) { alert("Error: " + e.message); }
-    };
-
-    // 3. Mark Attendance
+    // 3. Mark Attendance with One-Time Check
     window.markAttendance = async (status) => {
         const name = document.getElementById('empDropdown').value;
-        if(!name) return alert("Please select a name first!");
+        if(!name) return alert("Select name!");
+
+        // Duplicate Check
+        const qCheck = query(collection(db, "attendance"), where("employeeName", "==", name), where("date", "==", todayStr));
+        const existing = await getDocs(qCheck);
+        
+        if(!existing.empty) {
+            alert("Aapki attendance aaj ki pehle se lag chuki hai!");
+            return;
+        }
 
         try {
             await addDoc(collection(db, "attendance"), {
                 employeeName: name,
                 status: status,
-                date: todayDateStr,
+                date: todayStr,
                 timestamp: serverTimestamp()
             });
-            alert("Attendance marked: " + status);
+            alert("Attendance Done: " + status);
         } catch(e) { alert("Error: " + e.message); }
     };
 
-    // 4. ADMIN VIEW: Live Status Update (Today Only)
-    const q = query(
-        collection(db, "attendance"), 
-        where("date", "==", todayDateStr)
-    );
-
-    onSnapshot(q, (snapshot) => {
+    // 4. Admin Live View (Sorted by Time)
+    const qLive = query(collection(db, "attendance"), where("date", "==", todayStr));
+    onSnapshot(qLive, (snap) => {
         const statusDiv = document.getElementById('live-status');
-        if(snapshot.empty) {
-            statusDiv.innerHTML = "No attendance marked yet today.";
-            return;
-        }
+        if(snap.empty) { statusDiv.innerHTML = "No records yet."; return; }
 
-        statusDiv.innerHTML = "";
-        // Sort manually since we can't use complex indexes easily on first run
-        let records = [];
-        snapshot.forEach(doc => records.push(doc.data()));
+        let html = "";
+        let dataList = [];
+        snap.forEach(doc => dataList.push(doc.data()));
         
-        records.forEach(data => {
-            statusDiv.innerHTML += `
+        // Sort: Latest on top
+        dataList.sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
+
+        dataList.forEach(data => {
+            const time = data.timestamp ? new Date(data.timestamp.seconds * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'Waiting...';
+            html += `
                 <div class="status-item">
-                    <span>${data.employeeName}</span>
-                    <span class="${data.status}">${data.status}</span>
-                </div>
-            `;
+                    <span>
+                        <b>${data.employeeName}</b>
+                        <span class="time-tag">Time: ${time}</span>
+                    </span>
+                    <span class="${data.status}">${data.status.toUpperCase()}</span>
+                </div>`;
         });
+        statusDiv.innerHTML = html;
     });
 </script>
 
