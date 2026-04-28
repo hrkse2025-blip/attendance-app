@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html>
-<head>
+<head><script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>KS Admin - Monthly Reports</title>
@@ -128,6 +128,37 @@
 
         } catch (e) { alert("Error: " + e.message); }
     };
-</script>
+</scriptwindow.exportMonthlyExcel = async () => {
+    try {
+        const querySnapshot = await getDocs(collection(db, "attendance"));
+        const data = [];
+        
+        querySnapshot.forEach((doc) => {
+            const row = doc.data();
+            data.push({
+                "Employee Name": row.name || row.employeeName,
+                "Status": row.status,
+                "Date": row.date,
+                "Time": row.time ? new Date(row.time.seconds * 1000).toLocaleTimeString() : 'N/A'
+            });
+        });
+
+        if (data.length === 0) {
+            alert("No data found to download!");
+            return;
+        }
+
+        // Excel file banane ka logic
+        const worksheet = XLSX.utils.json_to_sheet(data);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Attendance");
+
+        // File download karna
+        XLSX.writeFile(workbook, `Attendance_Report_${new Date().toLocaleDateString()}.xlsx`);
+        
+    } catch (e) {
+        alert("Error: " + e.message);
+    }
+};
 </body>
 </html>
